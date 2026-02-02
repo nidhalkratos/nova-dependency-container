@@ -13,12 +13,12 @@ trait ActionHasDependencies
     {
         $availableFields = [];
 
-        foreach ($this->fields() as $field) {
+        foreach ($this->fields($request) as $field) {
             if ($field instanceof NovaDependencyContainer) {
                 // do not add any fields for validation if container is not satisfied
                 if ($field->areDependenciesSatisfied($request)) {
                     $availableFields[] = $field;
-                    $this->extractChildFields($field->meta['fields']);
+                    $this->extractChildFields($field->meta["fields"]);
                 }
             } else {
                 $availableFields[] = $field;
@@ -26,7 +26,10 @@ trait ActionHasDependencies
         }
 
         if ($this->childFieldsArr) {
-            $availableFields = array_merge($availableFields, $this->childFieldsArr);
+            $availableFields = array_merge(
+                $availableFields,
+                $this->childFieldsArr,
+            );
         }
     }
 
@@ -38,23 +41,30 @@ trait ActionHasDependencies
      * @param  \Laravel\Nova\Http\Requests\ActionRequest  $request
      * @return void
      */
-    public function validateFields(ActionRequest $request)
+    public function validateFields(ActionRequest $request): array
     {
         $fields = collect($this->fieldsForValidation($request));
 
         return Validator::make(
             $request->all(),
-            $fields->mapWithKeys(function ($field) use ($request) {
-                return $field->getCreationRules($request);
-            })->all(),
+            $fields
+                ->mapWithKeys(function ($field) use ($request) {
+                    return $field->getCreationRules($request);
+                })
+                ->all(),
             [],
-            $fields->reject(function ($field) {
-                return empty($field->name);
-            })->mapWithKeys(function ($field) {
-                return [$field->attribute => $field->name];
-            })->all()
-        )->after(function ($validator) use ($request) {
-            $this->afterValidation($request, $validator);
-        })->validate();
+            $fields
+                ->reject(function ($field) {
+                    return empty($field->name);
+                })
+                ->mapWithKeys(function ($field) {
+                    return [$field->attribute => $field->name];
+                })
+                ->all(),
+        )
+            ->after(function ($validator) use ($request) {
+                $this->afterValidation($request, $validator);
+            })
+            ->validate();
     }
 }
